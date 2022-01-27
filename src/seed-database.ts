@@ -1,6 +1,3 @@
-import faker from 'faker'
-import type { User } from '@issue/graphql/types'
-import { hashPassword } from '@issue/utils/password'
 import {
   clearDatabase,
   connect,
@@ -10,62 +7,22 @@ import {
 import { ogm } from '@issue/neo4j/graphql'
 
 export const seed = async () => {
-  const [User, Blog, Post, Comment] = ['User', 'Blog', 'Post', 'Comment'].map(
-    (name) => ogm.model(name)
-  )
-
-  const defaultEmail = 'admin@admin.com'
-  const defaultPassword = 'password'
-
-  const { users } = await User.create({
-    input: await Promise.all(
-      [
-        [defaultEmail, defaultPassword],
-        [faker.internet.email(), faker.internet.password()],
-        [faker.internet.email(), faker.internet.password()],
-      ].map(async ([email, password]) => {
-        return {
-          email,
-          password: await hashPassword(password),
-        }
-      })
-    ),
+  await ogm.model('Person').create({
+    input: [
+      { id: 'adam', name: 'Adam' },
+      { id: 'eve', name: 'Eve' },
+      { id: 'cain', name: 'Cain' },
+    ],
   })
 
-  await Blog.create({
-    input: users.map((user: User) => {
-      return {
-        name: faker.lorem.word(),
-        creator: {
-          connect: { where: { node: { id: user.id } } },
-        },
-        posts: {
-          create: new Array(1).fill(null).map(() => ({
-            node: {
-              title: faker.lorem.word(),
-              content: faker.lorem.paragraphs(4),
-              author: {
-                connect: { where: { node: { id: user.id } } },
-              },
-              comments: {
-                create: new Array(1).fill(null).map(() => {
-                  const u = users[Math.floor(Math.random() * users.length)]
-
-                  return {
-                    node: {
-                      content: faker.lorem.paragraph(),
-                      author: {
-                        connect: { where: { node: { id: u.id } } },
-                      },
-                    },
-                  }
-                }),
-              },
-            },
-          })),
-        },
-      }
-    }),
+  await ogm.model('Interaction').create({
+    input: [
+      {
+        subjects: { connect: { where: { node: { id_IN: ['adam', 'eve'] } } } },
+        kind: 'PARENT_OF',
+        objects: { connect: { where: { node: { id_IN: ['cain'] } } } },
+      },
+    ],
   })
 }
 
